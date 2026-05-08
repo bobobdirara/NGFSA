@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FSA PIC 랜덤 퀴즈</title>
+<style>
+:root{
+  --sb:#006241;
+  --bg:#f6f4ee;
+  --card:#fff;
+  --text:#1f2937;
+  --line:#ddd;
+  --good:#0a8a43;
+  --bad:#d93025;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--bg);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:var(--text);
+}
+header{
+  background:var(--sb);
+  color:white;
+  padding:24px 18px;
+  text-align:center;
+}
+header h1{margin:0;font-size:25px}
+header p{margin:8px 0 0;opacity:.9}
+.wrap{
+  max-width:760px;
+  margin:20px auto;
+  padding:0 14px 60px;
+}
+.card{
+  background:white;
+  border-radius:20px;
+  padding:22px;
+  box-shadow:0 3px 10px rgba(0,0,0,.06);
+}
+.top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:14px;
+  font-size:14px;
+  color:#6b7280;
+}
+.badge{
+  background:#e6f3ed;
+  color:var(--sb);
+  padding:6px 11px;
+  border-radius:999px;
+  font-weight:800;
+}
+.question{
+  font-size:20px;
+  font-weight:900;
+  line-height:1.45;
+  margin:18px 0;
+}
+.option{
+  display:block;
+  width:100%;
+  text-align:left;
+  padding:14px;
+  border:1px solid var(--line);
+  background:white;
+  border-radius:14px;
+  margin-bottom:10px;
+  font-size:16px;
+  cursor:pointer;
+}
+.option:hover{background:#f0f8f4}
+input[type="text"]{
+  width:100%;
+  padding:15px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  font-size:17px;
+}
+.mainBtn{
+  width:100%;
+  border:none;
+  background:var(--sb);
+  color:white;
+  font-size:18px;
+  font-weight:900;
+  padding:16px;
+  border-radius:16px;
+  margin-top:16px;
+  cursor:pointer;
+}
+.feedback{
+  margin-top:18px;
+  padding:15px;
+  border-radius:14px;
+  display:none;
+  line-height:1.5;
+}
+.good{background:#e8f7ee;color:var(--good);font-weight:800}
+.bad{background:#fdecec;color:var(--bad);font-weight:800}
+.answer{margin-top:8px;font-size:14px;color:#444}
+.result{display:none;text-align:center}
+.result h2{font-size:28px}
+.small{font-size:13px;color:#6b7280;margin-top:8px}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>FSA PIC 랜덤 퀴즈</h1>
+  <p>전체 주제 기반 · 랜덤 10문제 · 한 문제씩 풀기</p>
+</header>
+
+<div class="wrap">
+  <div class="card" id="quizCard">
+    <div class="top">
+      <span id="progress"></span>
+      <span class="badge" id="typeBadge"></span>
+    </div>
+
+    <div class="question" id="question"></div>
+    <div id="answerArea"></div>
+
+    <button class="mainBtn" id="checkBtn" onclick="checkAnswer()">정답 확인</button>
+    <div class="feedback" id="feedback"></div>
+    <button class="mainBtn" id="nextBtn" onclick="nextQuestion()" style="display:none;">다음 문제</button>
+  </div>
+
+  <div class="card result" id="resultCard">
+    <h2 id="finalScore"></h2>
+    <p id="finalText"></p>
+    <button class="mainBtn" onclick="restartQuiz()">다시 풀기</button>
+  </div>
+</div>
+
+<script src="questions.js"></script>
+
+<script>
+let questions = [];
+let current = 0;
+let score = 0;
+let answered = false;
+let selectedAnswer = "";
+const totalCount = 10;
+
+function shuffle(array){
+  return array.sort(() => Math.random() - 0.5);
+}
+
+function normalize(text){
+  return String(text)
+    .replace(/\s/g,"")
+    .replace(/도/g,"")
+    .replace(/미터/g,"m")
+    .replace(/일/g,"")
+    .replace(/개월/g,"개월")
+    .toLowerCase();
+}
+
+function startQuiz(){
+  questions = shuffle([...allQuestions]).slice(0,totalCount);
+  current = 0;
+  score = 0;
+  answered = false;
+  selectedAnswer = "";
+
+  document.getElementById("quizCard").style.display = "block";
+  document.getElementById("resultCard").style.display = "none";
+  renderQuestion();
+}
+
+function renderQuestion(){
+  answered = false;
+  selectedAnswer = "";
+
+  const item = questions[current];
+
+  document.getElementById("progress").innerText = `${current + 1} / ${questions.length}`;
+  document.getElementById("typeBadge").innerText = item.label;
+  document.getElementById("question").innerText = item.q;
+  document.getElementById("feedback").style.display = "none";
+  document.getElementById("nextBtn").style.display = "none";
+  document.getElementById("checkBtn").style.display = "block";
+
+  const area = document.getElementById("answerArea");
+  area.innerHTML = "";
+
+  if(item.type === "choice" || item.type === "ox"){
+    shuffle([...item.options]).forEach(option => {
+      const btn = document.createElement("button");
+      btn.className = "option";
+      btn.innerText = option;
+      btn.onclick = () => selectOption(option);
+      area.appendChild(btn);
+    });
+  }else{
+    area.innerHTML = `
+      <input type="text" id="textAnswer" placeholder="정답 입력">
+      <div class="small">숫자나 핵심 단어만 입력해도 정답 처리 가능</div>
+    `;
+  }
+}
+
+function selectOption(option){
+  selectedAnswer = option;
+  checkAnswer();
+}
+
+function checkAnswer(){
+  if(answered) return;
+
+  const item = questions[current];
+  let userAnswer = selectedAnswer;
+
+  if(item.type === "text"){
+    const input = document.getElementById("textAnswer");
+    userAnswer = input.value;
+  }
+
+  if(!userAnswer){
+    alert("답을 입력하거나 선택해줘");
+    return;
+  }
+
+  let isCorrect = false;
+
+  if(Array.isArray(item.answer)){
+    isCorrect = item.answer.some(ans => normalize(ans) === normalize(userAnswer));
+  }else{
+    isCorrect = normalize(userAnswer) === normalize(item.answer);
+  }
+
+  const feedback = document.getElementById("feedback");
+  feedback.style.display = "block";
+
+  if(isCorrect){
+    score++;
+    feedback.className = "feedback good";
+    feedback.innerHTML = "정답!";
+  }else{
+    const answerText = Array.isArray(item.answer) ? item.answer[0] : item.answer;
+    feedback.className = "feedback bad";
+    feedback.innerHTML = `
+      오답!
+      <div class="answer">정답: ${answerText}</div>
+    `;
+  }
+
+  answered = true;
+  document.getElementById("checkBtn").style.display = "none";
+  document.getElementById("nextBtn").style.display = "block";
+}
+
+function nextQuestion(){
+  current++;
+  if(current >= questions.length){
+    showResult();
+  }else{
+    renderQuestion();
+  }
+}
+
+function showResult(){
+  document.getElementById("quizCard").style.display = "none";
+  document.getElementById("resultCard").style.display = "block";
+
+  const percent = Math.round(score / questions.length * 100);
+  document.getElementById("finalScore").innerText = `${questions.length}문제 중 ${score}개 정답`;
+
+  let text = "";
+  if(percent >= 90){
+    text = "좋음. PIC 대비 안정적임.";
+  }else if(percent >= 70){
+    text = "괜찮음. 온도·행정처분·Vomit kit 쪽 더 보면 됨.";
+  }else{
+    text = "아직 위험함. 다시 풀면서 개념 잡자.";
+  }
+
+  document.getElementById("finalText").innerText = `점수 ${percent}점 · ${text}`;
+}
+
+function restartQuiz(){
+  startQuiz();
+}
+
+startQuiz();
+</script>
+
+</body>
+</html>
